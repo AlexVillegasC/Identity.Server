@@ -6,7 +6,7 @@ namespace Test.Identity.Api;
 
 public class TokenGenerator
 {
-    public string GenerateToken(string email)  //Guid userId, 
+    public string GenerateToken(string email, List<string> audiences)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = "ForTheLoveOfGodStoreAndLoadThisSecurely"u8.ToArray();
@@ -14,22 +14,33 @@ public class TokenGenerator
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            //new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim(JwtRegisteredClaimNames.Sub, email),
             new Claim(JwtRegisteredClaimNames.Email, email),
             new Claim("admin", "read:write")
         };
 
+        // Generate token with multiple audiences
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddMinutes(60),
-            Issuer = "https://id.dometrain.com", // who created this token
-            Audience = "http://localhost:5173", // who is this token intented for1
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature) // Sign this token 
+            Issuer = "https://localhost:7014", // Identity Server URL
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        // Create a JwtSecurityToken to add multiple audiences
+        var jwtToken = new JwtSecurityToken(
+            issuer: tokenDescriptor.Issuer,
+            claims: tokenDescriptor.Subject.Claims,
+            expires: tokenDescriptor.Expires,
+            signingCredentials: tokenDescriptor.SigningCredentials,
+            audience: null // Set audience to null to avoid single audience restriction
+        );
+
+        // Add multiple audiences                
+        jwtToken.Payload["aud"] = audiences;
+
+
+        return tokenHandler.WriteToken(jwtToken);
     }
 }
